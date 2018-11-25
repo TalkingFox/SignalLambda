@@ -63,3 +63,46 @@ resource "aws_lambda_permission" "apigw" {
   # within the API Gateway "REST API".
   source_arn = "${aws_api_gateway_deployment.signal_deploy.execution_arn}/*/*"
 }
+
+resource "aws_cloudfront_distribution" "ag_distribution" {
+  enabled = true
+
+  origin {
+    domain_name = "${replace("${aws_api_gateway_deployment.signal_deploy.invoke_url}","/(deploy)|(https://)|(/)/","")}"
+    origin_id = "ag_deploy_invoke_url"
+    origin_path = "/deploy"
+    custom_origin_config {
+      http_port = 80
+      https_port = 443
+      origin_protocol_policy = "match-viewer"
+      origin_ssl_protocols = ["SSLv3","TLSv1","TLSv1.1","TLSv1.2"]
+    }
+  }
+
+  default_cache_behavior {
+    viewer_protocol_policy = "allow-all"
+    allowed_methods = ["GET","HEAD","OPTIONS"]
+    cached_methods = ["GET","HEAD"]
+    target_origin_id = "ag_deploy_invoke_url"
+
+    
+    forwarded_values {
+      query_string = true
+      cookies {
+        forward = "none"
+      }
+    }    
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
+  depends_on = ["aws_api_gateway_deployment.signal_deploy"]
+}
