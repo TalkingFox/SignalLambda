@@ -47,6 +47,7 @@ def delete_room(name):
         }
     )
     return jsonify(success=True)
+
 @app.route('/rooms/<name>', methods=['PUT'])
 @cross_origin()
 def join_room(name):
@@ -71,6 +72,17 @@ def join_room(name):
     room = response['Item']
     return jsonify(room['Host'])
     
+@app.route('/rooms/<name>', methods=['GET'])
+@cross_origin()
+def read_room(name):
+    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+    table = dynamodb.Table(Config.ROOM_TABLE)
+    response = table.get_item(
+        Key={
+            'RoomName': name
+        }
+    )
+    return jsonify(response['Item'])
 
 def lambda_handler(event, context):
   return awsgi.response(app, event, context)
