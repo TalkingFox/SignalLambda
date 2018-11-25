@@ -1,9 +1,13 @@
+terraform/.terraform
+terraform/private.tf
+
 dev
 host.ps1
-terraform/.terraform
+
 .vscode
-packages
+
 src/__pycache__
+
 
 *.zip
 *.tfstate

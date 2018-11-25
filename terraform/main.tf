@@ -7,15 +7,10 @@ resource "aws_dynamodb_table" "signal-hotel" {
   read_capacity  = 20
   write_capacity = 20
   hash_key       = "RoomName"
-  range_key      = "Created"
 
   attribute = [{
     name = "RoomName"
     type = "S"
-  },
-    {
-      name = "Created"
-      type = "S"
-    },
+  }
   ]
 }

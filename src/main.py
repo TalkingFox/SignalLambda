@@ -36,6 +36,18 @@ def create_room():
     )    
     return jsonify(room)
 
+@app.route('/rooms/<name>', methods=['DELETE'])
+@cross_origin()
+def delete_room(name):
+    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+    table = dynamodb.Table(Config.ROOM_TABLE)
+    table.delete_item(
+        Key={
+            'RoomName': name
+        }
+    )
+    return jsonify(success=True)
+
 
 def lambda_handler(event, context):
   return awsgi.response(app, event, context)
@@ -52,7 +64,6 @@ def get_closed_rooms(table):
     )
     data = response['Items']    
     while 'LastEvaluatedKey' in response:
-        #print(response['Items'])
         response = table.scan(
             ExclusiveStartKey=response['LastEvaluatedKey'],
             ProjectionExpression="RoomName"
