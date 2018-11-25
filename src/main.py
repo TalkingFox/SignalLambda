@@ -4,7 +4,8 @@ from datetime import datetime
 from flask import (
     Flask,
     jsonify,
-    request
+    request,
+    Response
 )
 from flask_cors import CORS, cross_origin
 from config import Config
@@ -22,16 +23,14 @@ def index():
 @app.route('/rooms', methods=['POST'])
 @cross_origin()
 def create_room():
-    host_info = request.get_json()
     dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
     table = dynamodb.Table(Config.ROOM_TABLE)
     room = get_open_room(table)
     response = table.put_item(
         Item={
-            'RoomName': room,
-            'Created': datetime.now().isoformat(),
-            'Host': host_info,
-            'Players': []
+            'roomName': room,
+            'created': datetime.now().isoformat(),
+            'offers': {}
         }
     )    
     return jsonify(room)
@@ -43,46 +42,78 @@ def delete_room(name):
     table = dynamodb.Table(Config.ROOM_TABLE)
     table.delete_item(
         Key={
-            'RoomName': name
+            'roomName': name
         }
     )
     return jsonify(success=True)
 
-@app.route('/rooms/<name>', methods=['PUT'])
+@app.route('/rooms/<roomname>/offers', methods=['POST'])
 @cross_origin()
-def join_room(name):
+def join_room(roomname):
     player_info = request.get_json()
+    print(player_info)
+    player_name = player_info['name']
+    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+    table = dynamodb.Table(Config.ROOM_TABLE)
+    if is_name_taken(table, roomname, player_name):
+        return jsonify({'message': 'Username is taken.'}), 400
+    updateResponse = table.update_item(
+        Key={
+            'roomName': roomname
+        },
+        UpdateExpression="SET offers.#name = :player",
+        ExpressionAttributeNames={
+            '#name': player_name            
+        },
+        ExpressionAttributeValues={
+            ':player': {'offer': player_info['offer']}
+        }
+    )        
+    return jsonify({'message': 'Ok'}), 204
+    
+@app.route('/rooms/<name>/offers', methods=['GET'])
+@cross_origin()
+def read_offers(name):
+    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+    table = dynamodb.Table(Config.ROOM_TABLE)
+    response = table.get_item(
+        Key={
+            'roomName': name
+        }
+    )
+    return jsonify(response['Item']['offers'])
+
+@app.route('/rooms/<name>/offers/<player>', methods=['GET'])
+@cross_origin()
+def read_my_offer(name, player):
+    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+    table = dynamodb.Table(Config.ROOM_TABLE)
+    response = table.get_item(
+        Key={
+            'roomName': name
+        }
+    )
+    return jsonify(response['Item']['offers'][player])
+
+@app.route('/rooms/<roomname>/offers/<player>', methods=['PUT'])
+@cross_origin()
+def respond_to_offer(roomname, player):
+    answer = request.get_json()['answer']
     dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
     table = dynamodb.Table(Config.ROOM_TABLE)
     updateResponse = table.update_item(
         Key={
-            'RoomName': name
+            'roomName': roomname
         },
-        UpdateExpression="SET Players = list_append(Players, :p)",
-        ExpressionAttributeValues={
-            ':p': [player_info]
+        UpdateExpression="SET offers.#name.answer = :answer",
+        ExpressionAttributeNames={
+            '#name': player
+        },
+        ExpressionAttributeValues={            
+            ':answer': answer
         }
     )
-
-    response = table.get_item(
-        Key={
-            'RoomName': name
-        }
-    )
-    room = response['Item']
-    return jsonify(room['Host'])
-    
-@app.route('/rooms/<name>', methods=['GET'])
-@cross_origin()
-def read_room(name):
-    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
-    table = dynamodb.Table(Config.ROOM_TABLE)
-    response = table.get_item(
-        Key={
-            'RoomName': name
-        }
-    )
-    return jsonify(response['Item'])
+    return jsonify('ok'), 204
 
 def lambda_handler(event, context):
   return awsgi.response(app, event, context)
@@ -95,22 +126,30 @@ def get_words():
 
 def get_closed_rooms(table):
     response = table.scan(
-        ProjectionExpression = "RoomName"
+        ProjectionExpression = "roomName"
     )
     data = response['Items']    
     while 'LastEvaluatedKey' in response:
         response = table.scan(
             ExclusiveStartKey=response['LastEvaluatedKey'],
-            ProjectionExpression="RoomName"
+            ProjectionExpression="roomName"
         )
         data.extend(response['Items'])
-    return list(map(lambda x:x['RoomName'], data))
+    return list(map(lambda x:x['roomName'], data))
 
 def get_open_room(table):
     words = get_words()    
     closed_rooms = get_closed_rooms(table)
     available = list(set(words) - set(closed_rooms))
     return random.choice(available)
+
+def is_name_taken(table, room_name, player_name):
+    response = table.get_item(
+        Key = {
+            'roomName': room_name
+        }
+    )    
+    return player_name in response['Item']['offers']
 
 if __name__ == "__main__":
     app.run()
