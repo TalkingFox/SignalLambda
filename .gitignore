@@ -5,9 +5,7 @@ dev
 host.ps1
 
 .vscode
-
 src/__pycache__
-
 
 *.zip
 *.tfstate

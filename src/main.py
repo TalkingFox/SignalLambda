@@ -47,7 +47,30 @@ def delete_room(name):
         }
     )
     return jsonify(success=True)
+@app.route('/rooms/<name>', methods=['PUT'])
+@cross_origin()
+def join_room(name):
+    player_info = request.get_json()
+    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+    table = dynamodb.Table(Config.ROOM_TABLE)
+    updateResponse = table.update_item(
+        Key={
+            'RoomName': name
+        },
+        UpdateExpression="SET Players = list_append(Players, :p)",
+        ExpressionAttributeValues={
+            ':p': [player_info]
+        }
+    )
 
+    response = table.get_item(
+        Key={
+            'RoomName': name
+        }
+    )
+    room = response['Item']
+    return jsonify(room['Host'])
+    
 
 def lambda_handler(event, context):
   return awsgi.response(app, event, context)
