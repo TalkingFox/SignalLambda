@@ -1,4 +1,5 @@
 $mainFile = Get-ChildItem ../src/main.py
+$configFile = Get-ChildItem ../src/config.py
 $packages = get-childItem ../dev/Lib/site-packages/**/
 
 
