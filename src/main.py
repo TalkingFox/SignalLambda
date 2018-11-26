@@ -81,7 +81,10 @@ def read_offers(name):
             'roomName': name
         }
     )
-    return jsonify(response['Item']['offers'])
+    all_offers = response['Item']['offers']
+    print(all_offers)
+    new_offers = {k:v for k,v in all_offers.items() if 'answer' not in v}
+    return jsonify(new_offers)
 
 @app.route('/rooms/<name>/offers/<player>', methods=['GET'])
 @cross_origin()
