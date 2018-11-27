@@ -54,15 +54,16 @@ resource "aws_api_gateway_deployment" "signal_deploy" {
 }
 
 resource "aws_lambda_permission" "apigw" {
-  statement_id  = "AllowAPIGatewayInvoke"
+  statement_id  = "AllowExecutionFromApiGateway"
   action        = "lambda:InvokeFunction"
-  function_name = "${aws_lambda_function.signal.arn}"
+  function_name = "${aws_lambda_function.signal.function_name}"
   principal     = "apigateway.amazonaws.com"
 
-  # The /*/* portion grants access from any method on any resource
-  # within the API Gateway "REST API".
-  source_arn = "${aws_api_gateway_deployment.signal_deploy.execution_arn}/*/*"
+  # The /*/*/* part allows invocation from any stage, method and resource path
+  # within API Gateway REST API.
+  source_arn = "${aws_api_gateway_rest_api.signalApi.execution_arn}/*/*/*"
 }
+
 
 resource "aws_cloudfront_distribution" "ag_distribution" {
   enabled = true
@@ -81,7 +82,7 @@ resource "aws_cloudfront_distribution" "ag_distribution" {
 
   default_cache_behavior {
     viewer_protocol_policy = "allow-all"
-    allowed_methods = ["GET","HEAD","OPTIONS"]
+    allowed_methods = ["GET","HEAD","OPTIONS","POST","DELETE","PUT","PATCH"]
     cached_methods = ["GET","HEAD"]
     target_origin_id = "ag_deploy_invoke_url"
 

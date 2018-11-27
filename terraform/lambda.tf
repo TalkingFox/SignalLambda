@@ -28,6 +28,15 @@ data "aws_iam_policy_document" "lambda_access_doc" {
       "${aws_dynamodb_table.signal-hotel.arn}"
     ]
   }
+
+  statement {
+    actions = [
+      "logs:*"
+    ]
+    resources = [
+      "arn:aws:logs:::*"
+    ]
+  }
 }
 
 resource "aws_iam_policy" "lambda_access" {
