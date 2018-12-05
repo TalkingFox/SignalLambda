@@ -7,7 +7,7 @@ data "aws_iam_policy_document" "lambda" {
     principals {
       type        = "Service"
       identifiers = ["lambda.amazonaws.com"]
-    }    
+    }
   }
 }
 
@@ -24,29 +24,68 @@ data "aws_iam_policy_document" "lambda_access_doc" {
       "dynamodb:Scan",
       "dynamodb:UpdateItem",
     ]
+
     resources = [
-      "${aws_dynamodb_table.signal-hotel.arn}"
+      "${aws_dynamodb_table.signal-hotel.arn}",
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "iot:Publish"
+    ]
+
+    resources = [
+      "*",
     ]
   }
 
   statement {
     actions = [
-      "logs:*"
+      "autoscaling:Describe*",
+      "cloudwatch:*",
+      "logs:*",
+      "sns:*",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:GetRole",
     ]
+
+    effect    = "Allow"
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "iam:CreateServiceLinkedRole",
+    ]
+
     resources = [
-      "arn:aws:logs:::*"
+      "arn:aws:iam::*:role/aws-service-role/events.amazonaws.com/AWSServiceRoleForCloudWatchEvents*",
     ]
+
+    condition {
+      test     = "StringLike"
+      variable = "iam:AWSServiceName"
+
+      values = [
+        "events.amazonaws.com",
+      ]
+    }
   }
 }
 
 resource "aws_iam_policy" "lambda_access" {
-  name = "lambda_access"
+  name   = "lambda_access"
   policy = "${data.aws_iam_policy_document.lambda_access_doc.json}"
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_dynamo_policy_attach" {
-    role       = "${aws_iam_role.iam_for_lambda.name}"
-    policy_arn = "${aws_iam_policy.lambda_access.arn}"
+  role       = "${aws_iam_role.iam_for_lambda.name}"
+  policy_arn = "${aws_iam_policy.lambda_access.arn}"
 }
 
 resource "aws_iam_role" "iam_for_lambda" {

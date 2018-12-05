@@ -18,7 +18,6 @@ from boto3.dynamodb.conditions import Key
 app = Flask(__name__)
 cors = CORS(app)
 
-
 @app.route('/')
 @cross_origin()
 def index():
@@ -38,6 +37,13 @@ def create_room():
             'offers': []
         }
     )
+    iot = boto3.client('iot-data')
+    response = iot.publish(
+        topic='rooms/' + room,
+        qos=1,
+        payload='roomCreated'
+    )
+    print(jsonify(response))
     return jsonify(room)
 
 
@@ -52,6 +58,21 @@ def delete_room(name):
         }
     )
     return jsonify(success=True)
+
+@app.route('/rooms/<name>', methods=['GET'])
+@cross_origin()
+def get_room(name):
+    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
+    table = dynamodb.Table(Config.ROOM_TABLE)
+    room = table.get_item(
+        Key={
+            'roomName': name
+        }
+    )
+    if 'Item' in room:
+        return jsonify(success=True)
+    else:
+        return jsonify(message='Room not found!'), 404
 
 
 @app.route('/rooms/<roomname>/offers', methods=['POST'])
@@ -76,54 +97,6 @@ def join_room(roomname):
         }
     )
     return jsonify({'message': 'Ok'}), 204
-
-
-@app.route('/rooms/<name>/offers', methods=['GET'])
-@cross_origin()
-def read_offers(name):
-    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
-    table = dynamodb.Table(Config.ROOM_TABLE)
-    response = table.get_item(
-        Key={
-            'roomName': name
-        }
-    )
-    all_offers = response['Item']['offers']
-    new_offers = list(filter(lambda x: 'answer' not in x, all_offers))
-    return jsonify(new_offers)
-
-
-@app.route('/rooms/<name>/offers/<player>', methods=['GET'])
-@cross_origin()
-def read_my_offer(name, player):
-    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
-    table = dynamodb.Table(Config.ROOM_TABLE)
-    response = table.get_item(
-        Key={
-            'roomName': name
-        }
-    )
-    player_offer = next(offer for offer in response['Item']['offers'] if offer['name']==player)
-    return jsonify(player_offer)
-
-
-@app.route('/rooms/<roomname>/offers/<player>', methods=['PUT'])
-@cross_origin()
-def respond_to_offer(roomname, player):
-    answer = request.get_json()['answer']
-    dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
-    table = dynamodb.Table(Config.ROOM_TABLE)
-    document = table.get_item(
-        Key={
-            'roomName': roomname
-        }
-    )['Item']
-    player_offer = next(offer for offer in document['offers'] if offer['name']==player)
-    player_offer['answer'] = answer
-    print(document)
-    updateResponse = table.put_item(Item=document)
-    return jsonify('ok'), 204
-
 
 def lambda_handler(event, context):
     return awsgi.response(app, event, context)
