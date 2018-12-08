@@ -29,6 +29,7 @@ def index():
 @app.route('/rooms', methods=['POST'])
 @cross_origin()
 def create_room():
+    request_body = request.get_json()
     dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
     table = dynamodb.Table(Config.ROOM_TABLE)
     room = get_open_room(table)
@@ -36,7 +37,8 @@ def create_room():
         Item={
             'roomName': room,
             'created': datetime.now().isoformat(),
-            'offers': []
+            'offers': [],
+            'host': request_body['host']
         }
     )
     iot = boto3.client('iot-data')
