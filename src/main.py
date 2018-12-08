@@ -2,6 +2,7 @@ import random
 import boto3
 import awsgi
 import json
+import uuid
 
 from datetime import datetime
 from flask import (
@@ -75,7 +76,7 @@ def get_room(name):
         return jsonify(message='Room not found!'), 404
 
 
-@app.route('/rooms/<roomname>/offers', methods=['POST'])
+@app.route('/rooms/<roomname>', methods=['PUT'])
 @cross_origin()
 def join_room(roomname):
     player_info = request.get_json()
@@ -90,13 +91,17 @@ def join_room(roomname):
         },
         UpdateExpression="SET offers = list_append(offers, :player)",
         ExpressionAttributeValues={
-            ':player': [{
-                'offer': player_info['offer'],
-                'name': player_name
-            }]
+            ':player':  [player_name]
         }
     )
-    return jsonify({'message': 'Ok'}), 204
+    player_id = str(uuid.uuid4())
+    iot = boto3.client('iot-data')
+    response = iot.publish(
+        topic='rooms/' + roomname + '/' + player_id,
+        qos=1,
+        payload= json.dumps({'name': player_name, 'offer': player_info['offer']})
+    )
+    return jsonify({'roomTopic': 'rooms/'+roomname+'/'+player_id})
 
 def lambda_handler(event, context):
     return awsgi.response(app, event, context)
