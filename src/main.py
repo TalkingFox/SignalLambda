@@ -19,6 +19,7 @@ from boto3.dynamodb.conditions import Key
 app = Flask(__name__)
 cors = CORS(app)
 
+
 @app.route('/')
 @cross_origin()
 def index():
@@ -60,6 +61,7 @@ def delete_room(name):
     )
     return jsonify(success=True)
 
+
 @app.route('/rooms/<name>', methods=['GET'])
 @cross_origin()
 def get_room(name):
@@ -76,11 +78,11 @@ def get_room(name):
         return jsonify(message='Room not found!'), 404
 
 
-@app.route('/rooms/<roomname>', methods=['PUT'])
+@app.route('/rooms/<roomname>/join', methods=['POST'])
 @cross_origin()
 def join_room(roomname):
     player_info = request.get_json()
-    player_name = player_info['name']
+    player_name = player_info['player']
     dynamodb = boto3.resource('dynamodb', region_name=Config.AWS_REGION)
     table = dynamodb.Table(Config.ROOM_TABLE)
     if is_name_taken(table, roomname, player_name):
@@ -99,9 +101,30 @@ def join_room(roomname):
     response = iot.publish(
         topic='rooms/' + roomname + '/' + player_id,
         qos=1,
-        payload= json.dumps({'name': player_name, 'offer': player_info['offer']})
+        payload=json.dumps(
+            {
+                'name': player_name,
+                'offer': player_info['offer'],
+                'type': 'offer',
+                'room': roomname
+            })
     )
     return jsonify({'roomTopic': 'rooms/'+roomname+'/'+player_id})
+
+
+@app.route('/rooms/<roomname>/accept', methods=['POST'])
+@cross_origin()
+def allow_guest(roomname):
+    request_body = request.get_json()
+    iot = boto3.client('iot-data')
+    response = iot.publish(
+        topic='rooms/' + roomname + '/' + request_body['playerId'],
+        qos=1,
+        payload=json.dumps(
+            {'answer': request_body['answer'], 'type': 'answer'})
+    )
+    return jsonify({'success': True}), 204
+
 
 def lambda_handler(event, context):
     return awsgi.response(app, event, context)
