@@ -15,6 +15,7 @@ def handler(event, context):
         FilterExpression=Attr('host').eq(client_id)
     )
     data = response['Items']
+    print(response)
     if len(data) == 1: #delete the room
         response = table.delete_item(
             Key={

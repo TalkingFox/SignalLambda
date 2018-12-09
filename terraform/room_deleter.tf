@@ -84,7 +84,7 @@ resource "aws_iam_role" "iam_for_iot_lambda" {
 
 resource "aws_lambda_function" "room_deleter" {
   filename         = "room_deleter.zip"
-  function_name    = "room_deleter"
+  function_name    = "room_cleaner"
   runtime          = "python3.6"
   handler          = "main.handler"
   role             = "${aws_iam_role.iam_for_iot_lambda.arn}"
