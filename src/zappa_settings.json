@@ -2,6 +2,7 @@
     "dev": {
         "app_function": "main.app",
         "aws_region": "us-east-2",
+        "binary_support": false,
         "profile_name": "default",
         "project_name": "src",
         "runtime": "python3.6",

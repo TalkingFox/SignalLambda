@@ -20,7 +20,7 @@ app = Flask(__name__)
 cors = CORS(app)
 
 
-@app.route('/')
+@app.route('/', methods=['GET'])
 @cross_origin()
 def index():
     return jsonify(status=200, message='OK')
